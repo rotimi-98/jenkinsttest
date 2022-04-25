@@ -1,0 +1,28 @@
+version: '3'
+
+services:
+
+  integration:
+    build: ./
+    depends_on:
+    - vote
+
+    networks:
+      - integration
+
+  vote:
+    build: ../
+    ports: ["80"]
+    depends_on:
+      - redis
+    networks:
+      - integration
+
+  redis:
+    image: redis:alpine
+    ports: ["6379"]
+    networks:
+      - integration
+
+networks:
+  integration:

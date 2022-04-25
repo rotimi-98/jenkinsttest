@@ -1,0 +1,102 @@
+pipeline {
+
+    agent none
+
+    stages {
+        stage('Build') {
+            agent {
+                node {label 'docker-agent'}
+                docker {
+                    image 'maven:3.8.1-adoptopenjdk-11'
+                    args '-v $HOME/.m2:/root/.m2'
+                }
+            }
+            when {
+              allOf {
+                changeset '**/worker/**'
+                }
+            }
+            steps {
+                echo 'Compiling worker application...'
+                dir('worker') {
+                  sh 'mvn compile'
+                }
+            }
+        }
+        stage('Test') {
+            agent {
+                node {label 'docker-agent'}
+                docker {
+                    image 'maven:3.8.1-adoptopenjdk-11'
+                    args '-v $HOME/.m2:/root/.m2'
+                }
+            }
+            when {
+              allOf {
+                changeset '**/worker/**'
+                }
+            }
+            steps {
+                echo 'Running unit test for worker application..'
+                dir('worker') {
+                  sh 'mvn clean test'
+                }
+            }
+        }
+        stage('Package') {
+            agent {
+                node {label 'docker-agent'}
+                docker {
+                    image 'maven:3.8.1-adoptopenjdk-11'
+                    args '-v $HOME/.m2:/root/.m2'
+                }
+            }
+            when {
+              allOf {
+                branch 'master'
+                changeset '**/worker/**'
+                }
+            }
+            steps {
+                echo 'Packaging worker application...'
+                dir('worker') {
+                  sh 'mvn package -DskipTests'
+                  archiveArtifacts artifacts: '**/target/*.jar', fingerprint: true, followSymlinks: false
+                } 
+            }
+        }
+        stage('Docker-package') {
+            agent any
+            when {
+              allOf {
+                branch 'master'
+                changeset '**/worker/**'
+                }
+            }
+            steps {
+                echo 'Packaging worker application...with Docker'
+                script {
+                  docker.withRegistry('https://index.docker.io/v1/', 'dockerlogin') {
+                     def workerImage = docker.build("rotimi98/worker:v${env.BUILD_ID}", "./worker")
+                     workerImage.push()
+                     workerImage.push("${env.BRANCH_NAME}")
+                  }
+                }
+            }
+        }
+     }
+
+    post {
+     always {
+       echo "Pipeline for worker is completed and packaging archive file..."
+      }
+     failure {
+       slackSend (channel: "#training", message: "Build failed ${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)")
+     }
+     success {
+       slackSend (channel: "#training", message: "Build succeeded ${env.JOB_NAME} ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)")
+     }
+
+    }
+
+}

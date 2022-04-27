@@ -16,8 +16,8 @@ pipeline {
       }
     stage('Publish') {
       steps {
-        withAWS(credentials:'aws-id', region:'ca-central-1'){
-        s3Upload(bucket:"ci-artifacts", includePathPattern:'**/.jar', pathStyleAccessEnabled: true, sseAlgorithm:'AES256')
+        withAWS(credentials:'aws-credentials', region:'ca-central-1'){
+        s3Upload(bucket:"artifacts-12", includePathPattern:'**/.jar', pathStyleAccessEnabled: true, sseAlgorithm:'AES256')
           }
         }
     
